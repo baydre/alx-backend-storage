@@ -5,7 +5,7 @@ Task 1: Reading from Redis and recovering
 original type (ln 109-132).
 Task 2: Incrementing values (ln 16-30).
 Task 3: Storing lists (ln 33-56).
-Task 4: Retrieving lists (ln 71-93, )
+Task 4: Retrieving lists (ln 59-81)
 """
 import redis
 import uuid
