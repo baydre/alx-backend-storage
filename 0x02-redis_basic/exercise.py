@@ -3,7 +3,8 @@
 Task 0: Writing strings to Redis (ln 31-51).
 Task 1: Reading from Redis and recovering
 original type (ln 53-76).
-Task 2: Incrementing values (ln 14-28, 78-87).
+Task 2: Incrementing values (ln 15-29, 105-114).
+Task 3: Storing lists (ln 32-55, 116-127).
 """
 import redis
 import uuid
@@ -25,6 +26,32 @@ def count_calls(method: Callable) -> Callable:
         """
         self._redis.incr(method.__qualname__)
         return method(self, *args, **kwargs)
+    return wrapper
+
+
+def call_history(method: Callable) -> Callable:
+    """
+    Decorator to store the history of inputs and outputs
+    for a function. Appends inputs to
+    '{method.__qualname__}:inputs' and outputs to
+    '{method.__qualname__}:outputs' list in Redis.
+    """
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs) -> Any:
+        """
+        Wrapper function that stores inputs and outputs
+        executes the original method.
+        """
+        input_key = f"{method.__qualname__}:inputs"
+        output_key = f"{method.__qualname__}:outputs"
+
+        self._redis.rpush(input_key, str(args))
+
+        output = method(self, *args, **kwargs)
+
+        self._redis.rpush(output_key, output)
+
+        return output
     return wrapper
 
 
@@ -81,6 +108,19 @@ class Cache:
         Store the input data in Redis using a random key and
         returns the key. The data can be a string, bytes, integer,
         or float. This methods's calls are counted.
+        """
+        key = str(uuid.uuid4())
+        self._redis.set(key, data)
+        return key
+
+    @call_history
+    @count_calls
+    def store(self, data: Union[str, bytes, int, float]) -> str:
+        """
+        Stores the input data in Redis using a random key and
+        returns the key. The data can be string, bytes, integer,
+        or float. This method's calls are counted and
+        inputs/outputs are historically stored.
         """
         key = str(uuid.uuid4())
         self._redis.set(key, data)
