@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Task 0: Writing strings to Redis (ln 31-51).
+Task 0: Writing strings to Redis (ln 84-95, 97-103).
 Task 1: Reading from Redis and recovering
-original type (ln 53-76).
-Task 2: Incrementing values (ln 15-29, 105-114).
-Task 3: Storing lists (ln 32-55, 116-127).
+original type (ln 109-132).
+Task 2: Incrementing values (ln 16-30).
+Task 3: Storing lists (ln 33-56).
+Task 4: Retrieving lists (ln 71-93, )
 """
 import redis
 import uuid
@@ -55,6 +56,31 @@ def call_history(method: Callable) -> Callable:
     return wrapper
 
 
+def replay(method: Callable):
+    """
+    Displays the history of calls of
+    a particular function.
+    """
+    redis_instance = method.__self__._redis
+    qualname = method.__qualname__
+
+    call_count = redis_instance.get(qualname)
+    if call_count:
+        call_count = int(call_count.decode('utf-8'))
+    else:
+        call_count = 0
+
+    inputs = redis_instance.lrange(f"{qualname}:inputs", 0, -1)
+    outputs = redis_instance.lrange(f"{qualname}:outputs", 0, -1)
+
+    print(f"{qualname} was called {call_count} times:")
+
+    for input_args, output_val in zip(inputs, outputs):
+        input_args_str = input_args.decode('utf-8')
+        output_val_str = output_val.decode('utf-8')
+        print(f"{qualname}(*{input_args_str}) -> {output_val_str}")
+
+
 class Cache:
     """
     Cache class for interacting with Redis
@@ -67,11 +93,14 @@ class Cache:
         self._redis = redis.Redis()
         self._redis.flushdb()
 
+    @call_history
+    @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
-        Stores the input data in Redis using
-        a random key and returns the key.The data
-        can be a string, bytes, integer, or float.
+        Stores the input data in Redis using a random key and
+        returns the key. The data can be string, bytes, integer,
+        or float. This method's calls are counted and
+        inputs/outputs are historically stored.
         """
         key = str(uuid.uuid4())
         self._redis.set(key, data)
@@ -101,27 +130,3 @@ class Cache:
         Retrieves data from Redis as an integer.
         """
         return self.get(key, fn=int)
-
-    @count_calls
-    def store(self, data: Union[str, bytes, int, float]) -> str:
-        """
-        Store the input data in Redis using a random key and
-        returns the key. The data can be a string, bytes, integer,
-        or float. This methods's calls are counted.
-        """
-        key = str(uuid.uuid4())
-        self._redis.set(key, data)
-        return key
-
-    @call_history
-    @count_calls
-    def store(self, data: Union[str, bytes, int, float]) -> str:
-        """
-        Stores the input data in Redis using a random key and
-        returns the key. The data can be string, bytes, integer,
-        or float. This method's calls are counted and
-        inputs/outputs are historically stored.
-        """
-        key = str(uuid.uuid4())
-        self._redis.set(key, data)
-        return key
