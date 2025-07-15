@@ -1,14 +1,31 @@
 #!/usr/bin/env python3
 """
-Task 0: Writing strings to Redis (ln 1-32).
+Task 0: Writing strings to Redis (ln 31-51).
 Task 1: Reading from Redis and recovering
-original type (ln 36-59).
-Task 2: Incrementing values (ln 61-86).
+original type (ln 53-76).
+Task 2: Incrementing values (ln 14-28, 78-87).
 """
 import redis
 import uuid
 import functools
 from typing import Union, Callable, Any
+
+
+def count_calls(method: Callable) -> Callable:
+    """
+    Decorator to count how many times a method is called.
+    Uses the method's qualified name as a Redis key for
+    the counter.
+    """
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs) -> Any:
+        """
+        Wrapper function that increments the call count
+        and executes the original method.
+        """
+        self._redis.incr(method.__qualname__)
+        return method(self, *args, **kwargs)
+    return wrapper
 
 
 class Cache:
@@ -57,22 +74,6 @@ class Cache:
         Retrieves data from Redis as an integer.
         """
         return self.get(key, fn=int)
-
-    def count_calls(method: Callable) -> Callable:
-        """
-        Decorator to count how many times a method is called.
-        Uses the method's qualified name as a Redis key for
-        the counter.
-        """
-        @functools.wraps(method)
-        def wrapper(self, *args, **kwargs) -> Any:
-            """
-            Wrapper function that increments the call count
-            and executes the original method.
-            """
-            self._redis.incr(method.__qualname__)
-            return method(self, *args, **kwargs)
-        return wrapper
 
     @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
